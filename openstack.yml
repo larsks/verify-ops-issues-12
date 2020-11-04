@@ -1,0 +1,10 @@
+plugin: openstack
+expand_hostvars: false
+only_clouds:
+  - kaizen-lars
+
+groups:
+  bug_620: inventory_hostname.startswith('bug-620')
+
+compose:
+  ansible_user: '"ubuntu"'

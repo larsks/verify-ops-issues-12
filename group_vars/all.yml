@@ -1,0 +1,25 @@
+---
+prefix: bug-620
+template:
+  key: default
+  image: 'ubuntu-focal-20.04-x86_64'
+  flavor: m1.medium
+  security_groups:
+    - allow_ssh
+  userdata: |
+    #!/bin/sh
+
+    apt-get update
+    apt-get -y install mini-httpd
+    cat > /etc/default/mini-httpd <<EOF
+    START=1
+    DAEMON_OPTS="-C /etc/mini-httpd.conf"
+    EOF
+
+    cat > /var/www/html/index.html <<EOF
+    This is $(hostname).
+    EOF
+
+    sed -i '/^host=/ s/localhost/0.0.0.0/' /etc/mini-httpd.conf
+
+    systemctl restart mini-httpd

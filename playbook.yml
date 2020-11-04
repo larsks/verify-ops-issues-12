@@ -1,0 +1,70 @@
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: create security groups
+      os_security_group:
+        name: "{{ prefix }}-sg-{{ item }}"
+      loop: "{{ range(0,2)|list }}"
+
+    - name: create security group rule
+      os_security_group_rule:
+        security_group: bug-620-sg-0
+        remote_group: bug-620-sg-1
+
+    - name: create instances
+      os_server:
+        name: "{{ prefix }}-{{ item }}"
+        state: present
+        key_name: "{{ template.key }}"
+        nics:
+          - "net-name=test_net{{ item }}"
+        image: "{{ template.image }}"
+        flavor: "{{ template.flavor }}"
+        userdata: "{{ template.userdata }}"
+        security_groups: "{{ template.security_groups|default([]) + ['{}-sg-{}'.format(prefix, item)] }}"
+      loop: "{{ range(0,2)|list }}"
+      register: servers
+
+    - meta: refresh_inventory
+
+- hosts: bug_620
+  gather_facts: false
+  tasks:
+    - wait_for_connection:
+
+- hosts: bug_620
+  gather_facts: false
+  tasks:
+    - name: wait for mini-httpd to start up
+      command: >-
+        curl -sf http://localhost
+      register: check
+      until: check.rc == 0
+      retries: 10
+      delay: 6
+
+- hosts: bug-620-0
+  gather_facts: false
+  tasks:
+    - command: >-
+        curl --connect-timeout 10 -f http://{{ hostvars['bug-620-1'].openstack.addresses.test_net1.0.addr }}
+      register: check0
+      failed_when: false
+      changed_when: check0.rc != 0
+
+    - name: verify that sg0 -> sg1 failed
+      assert:
+        that: check0 is changed
+
+- hosts: bug-620-1
+  gather_facts: false
+  tasks:
+    - command: >-
+        curl --connect-timeout 10 -f http://{{ hostvars['bug-620-0'].openstack.addresses.test_net0.0.addr }}
+      failed_when: false
+      changed_when: check1.rc != 0
+      register: check1
+
+    - name: verify that sg1 -> sg0 succeeded
+      assert:
+        that: check1 is success

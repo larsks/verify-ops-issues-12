@@ -1,0 +1,17 @@
+- hosts: bug_620
+  gather_facts: false
+  tasks:
+    - name: remove servers
+      delegate_to: localhost
+      os_server:
+        name: "{{ inventory_hostname }}"
+        state: absent
+
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: remove security groups
+      os_security_group:
+        name: "{{ prefix }}-sg-{{ item }}"
+        state: absent
+      loop: "{{ range(0,2)|list }}"
